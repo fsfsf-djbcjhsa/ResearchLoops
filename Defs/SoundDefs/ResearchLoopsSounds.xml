@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Defs>
+
+  <!-- ResearchLoops custom sounds, ported from Stellaris stings.
+       Audio files live in Sounds/ (ogg, Vorbis); each SoundDef's AudioGrain_Clip.clipPath
+       points at the file by name (no extension). Played on the camera as UI notifications. -->
+
+  <!-- 科技开始研究: Stellaris research_click_01 (sound/ui/start_research_01.wav) -->
+  <SoundDef>
+    <defName>RL_ResearchStart</defName>
+    <context>MapOnly</context>
+    <maxSimultaneous>1</maxSimultaneous>
+    <subSounds>
+      <li>
+        <onCamera>true</onCamera>
+        <grains>
+          <li Class="AudioGrain_Clip">
+            <clipPath>RL_ResearchStart</clipPath>
+          </li>
+        </grains>
+        <volumeRange>35~40</volumeRange>
+      </li>
+    </subSounds>
+  </SoundDef>
+
+  <!-- 研究完成: Stellaris ui_research_done -> test_rev_up (sound/placeholders/car_start_01.wav) -->
+  <SoundDef>
+    <defName>RL_ResearchComplete</defName>
+    <context>MapOnly</context>
+    <maxSimultaneous>1</maxSimultaneous>
+    <subSounds>
+      <li>
+        <onCamera>true</onCamera>
+        <grains>
+          <li Class="AudioGrain_Clip">
+            <clipPath>RL_ResearchComplete</clipPath>
+          </li>
+        </grains>
+        <volumeRange>40~45</volumeRange>
+      </li>
+    </subSounds>
+  </SoundDef>
+
+  <!-- 心胜于物 (psionic ascension): Stellaris event_psionic (sound/utopia/event_psionic_01.wav) -->
+  <SoundDef>
+    <defName>RL_AscensionMindOverMatter</defName>
+    <context>MapOnly</context>
+    <maxSimultaneous>1</maxSimultaneous>
+    <subSounds>
+      <li>
+        <onCamera>true</onCamera>
+        <grains>
+          <li Class="AudioGrain_Clip">
+            <clipPath>RL_AscensionMindOverMatter</clipPath>
+          </li>
+        </grains>
+        <volumeRange>45~50</volumeRange>
+      </li>
+    </subSounds>
+  </SoundDef>
+
+  <!-- 合成进化 (synthetic ascension): Stellaris event_ai_started (sound/event/event_ai_started_01.wav) -->
+  <SoundDef>
+    <defName>RL_AscensionSynthetic</defName>
+    <context>MapOnly</context>
+    <maxSimultaneous>1</maxSimultaneous>
+    <subSounds>
+      <li>
+        <onCamera>true</onCamera>
+        <grains>
+          <li Class="AudioGrain_Clip">
+            <clipPath>RL_AscensionSynthetic</clipPath>
+          </li>
+        </grains>
+        <volumeRange>45~50</volumeRange>
+      </li>
+    </subSounds>
+  </SoundDef>
+
+  <!-- 血肉苦弱 (cybernetic ascension): Stellaris event_announcement (sound/federations/sfx_event_announcement.wav) -->
+  <SoundDef>
+    <defName>RL_AscensionCybernetic</defName>
+    <context>MapOnly</context>
+    <maxSimultaneous>1</maxSimultaneous>
+    <subSounds>
+      <li>
+        <onCamera>true</onCamera>
+        <grains>
+          <li Class="AudioGrain_Clip">
+            <clipPath>RL_AscensionCybernetic</clipPath>
+          </li>
+        </grains>
+        <volumeRange>45~50</volumeRange>
+      </li>
+    </subSounds>
+  </SoundDef>
+
+  <!-- 设计进化 (genetic ascension): Stellaris event_alien_nature (sound/event/event_alien_nature.wav) -->
+  <SoundDef>
+    <defName>RL_AscensionGenetic</defName>
+    <context>MapOnly</context>
+    <maxSimultaneous>1</maxSimultaneous>
+    <subSounds>
+      <li>
+        <onCamera>true</onCamera>
+        <grains>
+          <li Class="AudioGrain_Clip">
+            <clipPath>RL_AscensionGenetic</clipPath>
+          </li>
+        </grains>
+        <volumeRange>45~50</volumeRange>
+      </li>
+    </subSounds>
+  </SoundDef>
+
+  <!-- 整条循环链研究完成: Stellaris event_activating_unknown_technology
+       (sound/event/event_activating_unknown_technology.wav) — a grander "big discovery" sting,
+       distinct from the per-level RL_ResearchComplete rev. -->
+  <SoundDef>
+    <defName>RL_ChainComplete</defName>
+    <context>MapOnly</context>
+    <maxSimultaneous>1</maxSimultaneous>
+    <subSounds>
+      <li>
+        <onCamera>true</onCamera>
+        <grains>
+          <li Class="AudioGrain_Clip">
+            <clipPath>RL_ChainComplete</clipPath>
+          </li>
+        </grains>
+        <volumeRange>50~55</volumeRange>
+      </li>
+    </subSounds>
+  </SoundDef>
+
+</Defs>

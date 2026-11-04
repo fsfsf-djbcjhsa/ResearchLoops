@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ModMetaData>
+  <name>循环科技 (Research Loops)</name>
+  <author>料青山见我应如是</author>
+  <packageId>liaoqingshan.researchloops</packageId>
+  <modVersion>1.1</modVersion>
+  <supportedVersions>
+    <li>1.6</li>
+  </supportedVersions>
+  <modDependencies>
+    <li>
+      <packageId>brrainz.harmony</packageId>
+      <displayName>Harmony</displayName>
+      <steamWorkshopUrl>steam://url/CommunityFilePage/2009463077</steamWorkshopUrl>
+    </li>
+  </modDependencies>
+  <loadAfter>
+    <li>brrainz.harmony</li>
+    <li>ludeon.rimworld</li>
+    <li>JellyCreative.IsekaiLeveling</li>
+  </loadAfter>
+  <description>
+  群星小伙天然气成瘾，每天爽吃能量币，需要专门的研究所，只会按部就班研究科技，能量微小；环世界小伙每天 吃了营养膏-4 在地上吃饭-3 可怕的多人宿舍-7 极其丑陋的环境-15，能够只靠翻动研究台上的几张纸研究出科技，能量巨大。话虽如此，环世界虽然已经凭借着先进的希望工程，奴隶制和掏心掏肺战胜了群星落后的极致时代科技，但是却始终未能开始跑循环，所以我（和d指导）完成了这个mod，让和我一样文化：科研：非常快，研究速度：200%，研究速度系数：189%的玩家后期有事干。
+
+本模组内容包含涵盖各个方面的科技循环，并且有四种物种飞升以及最后的化身天灾（饼，没想好效果），物种飞升前置条件为多种循环跑满，化身天灾则在全部物种飞升结束之后出现，物种飞升≈半步~，化身天灾≈~全开，效果无法消除，请谨慎考虑。
+
+什么，你问我这个科技是哪里来的？emm，可以是知管扔的，帝国用来发现洞见的（依旧落后的银河帝国需要学习先进的土著），虚境来的，小灰v的，或者超凡智能天意发力了。
+
+Tips：本模组偏正义，科技循环不计入财富值，想要更好的平衡可以选择下调效果，上调所需点数或者关闭物种飞升。
+
+Q&amp;A
+
+Q：语言？
+
+A：中文和机翻的English
+
+Q：前置需求？
+
+A：灵能部分要求皇权dlc，机械体要求生物科技dlc，没有也没关系
+
+Q：包含哪些循环？
+
+A：本模组包含技能、战斗相关、休息、饥饿、心情等多种科技循环，覆盖生活与生产各方面；循环跑满后可解锁四种物种飞升，全部飞升结束后再触发化身天灾。具体循环内容可在游戏内科技树查看
+
+Q：物种飞升包含什么？
+
+A：娱乐，休息，饥饿，心情值不再下降；远程必中；不再流血；无视疼痛；无限精神力；无限心灵熵；机械体无需充电；机械师全屏指挥；无限机械带宽（每个飞升1w点）
+
+Q：性能占用？
+
+A：以数值与事件修正为主，不额外加载模型或贴图资源，常规基本无感知，约为棍母
+
+Q：兼容性？
+
+A：尝试了ve全家桶，1k+mod，鼠猫米螈龙娘沃芬雪豹，目前一切良好
+
+Q：敌人会使用吗？
+
+A：飞升太阴了，直接ban了
+
+Q：是否使用AI？
+
+A：3A大作，震撼人心：）
+</description>
+</ModMetaData>

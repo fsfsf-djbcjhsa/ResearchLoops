@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<LanguageData>
+
+  <!--
+    English text for the hediffs this mod ships as XML defs. 2026-10-23, user directive
+    「加入英文版，除语言为中文外其余语言对应均为英文」. 2026-10-25 用户「把四个飞升也加入英文版」
+    推翻了早前的「飞升保留中文」：四条飞升健康栏名称现在也双语。
+
+    The loop buff is translated, and so are the four ascension hediffs (their English names mirror
+    the research-node labelEn). None of these carries a description — 2026-10-23 「只留效果」 removed
+    them, and a key pointing at a field that no longer exists errors at load.
+
+    The loops' own research defs are NOT here on purpose: they are generated at load time from
+    Data/ResearchLoopTemplates.xml, which carries nameEn / descriptionEn etc. and picks a language
+    itself (see Localization.cs). DefInjected only reaches defs that exist in XML on disk.
+  -->
+
+  <RL_Hediff_TechCycle.label>Research Loop</RL_Hediff_TechCycle.label>
+  <RL_Hediff_Ascension_Psy.label>Mind Over Matter</RL_Hediff_Ascension_Psy.label>
+  <RL_Hediff_Ascension_Mech.label>Synthetic Evolution</RL_Hediff_Ascension_Mech.label>
+  <RL_Hediff_Ascension_Body.label>Cybernetic Ascension</RL_Hediff_Ascension_Body.label>
+  <RL_Hediff_Ascension_Gene.label>Genetic Ascension</RL_Hediff_Ascension_Gene.label>
+
+</LanguageData>

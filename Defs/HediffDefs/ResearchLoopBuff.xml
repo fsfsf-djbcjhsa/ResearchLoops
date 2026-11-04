@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Defs>
+
+  <!--
+    The one buff every buff-delivered loop rides (DESIGN §15). Modeled on RimSkyBlock's
+    empire bonus (RSB_Hediff_EmpireEffects): gold label, custom hediffClass, a single visible
+    stage, no comps. The stage's stat offsets/factors are built at runtime from the colony's
+    researched levels by Hediff_ResearchLoop.CurStage, and the same class renders the
+    per-chain breakdown in TipStringExtra.
+  -->
+  <HediffDef>
+    <defName>RL_Hediff_TechCycle</defName>
+    <label>循环科技</label>
+    <hediffClass>LocalMods.ResearchLoops.Hediff_ResearchLoop</hediffClass>
+    <isBad>false</isBad>
+    <defaultLabelColor>(255,215,0)</defaultLabelColor>
+    <scenarioCanAdd>false</scenarioCanAdd>
+    <stages>
+      <li>
+        <becomeVisible>true</becomeVisible>
+      </li>
+    </stages>
+  </HediffDef>
+
+</Defs>

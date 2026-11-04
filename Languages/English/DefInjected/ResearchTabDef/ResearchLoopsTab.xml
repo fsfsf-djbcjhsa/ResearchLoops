@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<LanguageData>
+
+  <ResearchLoops.label>Research Loops</ResearchLoops.label>
+  <ResearchLoops.generalTitle>Research Loops</ResearchLoops.generalTitle>
+  <ResearchLoops.generalDescription>Every project on this page is a loop: finish one level and the same node becomes the next level in place, with a higher cost and a higher payoff that stacks permanently.
+
+All loops require a Multi Analyzer. The bonuses apply to your own colonists and slaves only.</ResearchLoops.generalDescription>
+
+</LanguageData>

@@ -1,0 +1,855 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  ResearchLoops — authored loop definitions. THE single source of truth.
+
+  This file lives OUTSIDE Defs/ on purpose: RimWorld auto-loads every xml under Defs/, and a
+  template that became a real Def would show up in the research panel. Instead,
+  PatchOperation_GenerateLoopDefs reads this file while applying XML patches and emits the real
+  ResearchProjectDef for each <Loop> — one def per chain, NOT one per level. The level is a
+  counter (GameComponent_ResearchLoops) projected onto that def by ResearchLoopProgress.
+
+  IMPORTANT: that operation runs BEFORE defs are parsed, so DefDatabase is empty and nothing in
+  this pipeline may resolve a def. Everything the generator needs is authored here.
+
+  Placeholders filled per level by ResearchLoopPlan:
+    {0} = the level the node is currently offering
+    {1} = that level's effect text (effectText with its magnitude substituted)
+    {2} = the next level's effect, or the cap note on the last level (empty for open-ended
+          chains — the "研究完这一级即到顶" sentence was deleted on user request, 2026-10-22)
+    {3} = "下一级（第 N 级）" on every level that still has one, empty on the last level
+
+  Attributes:
+    defName         stable id, also the join key used by the buff hediff, the gene and the counter
+    stat            vanilla StatDef the loop drives ("-" for patch- and skill-delivered loops).
+                    Carried by the buff hedgeiff (delivery="buff"); also the primary stat shown
+                    by the verifier.
+    stats           optional comma-separated StatDef list the buff applies to, when one loop
+                    covers several stats (only armor: Sharp/Blunt/Heat). When absent the buff
+                    carries `stat` alone.
+    skill           vanilla SkillDef this loop levels up, one point per completed level
+                    (delivery="skill" only). Read at runtime by Patch_SkillLevel; the bonus is
+                    applied on read (SkillRecord.GetLevel postfix), never written to the pawn,
+                    so it survives neither decay nor a save (removing the mod restores it).
+                    Vanilla skills cap at 20, but this bonus is added AFTER the clamp on
+                    purpose: work-speed stats keep scaling linearly, so a 50-level chain is not
+                    wasted past level 20. Skills that index a fixed per-level table
+                    (SkillNeed_Direct) simply read their last entry.
+    mode            factor (value *= perLevel^level) | add (value += perLevel*level) | tiers (quality).
+                    Skill loops use add with perLevel=1, which makes {1} render as "+N".
+    delivery        buff (one pawn hediff: Hediff_ResearchLoop, §15) |
+                    patch (Harmony patch point, no stat to ride) |
+                    skill (per-level skill point, no stat involved) |
+                    passion (writes SkillRecord.passion directly; VSE-safe via
+                    PassionExtension.IncrementPassion — see ResearchLoopPassion.cs)
+    clampMin        optional lower clamp, 'add' mode only. Omit for unbounded.
+    clampMax        optional upper clamp, 'add' mode only. Probability stats MUST set one
+                    (an unclamped melee dodge means melee can never land).
+    prerequisite    research defName that the chain's first level requires — MultiAnalyzer for
+                    every loop, so the whole page unlocks at one point (design decision v4)
+    researchViewX/Y coordinate inside this mod's own page (ResearchTabDef "ResearchLoops").
+                    Unique per loop: duplicates would be reported pairwise by
+                    ResearchProjectDef.ConfigErrors() and then pulled apart by the engine's
+                    GenerateNonOverlappingCoordinates(). The page is a 6-column grid; rows
+                    extend automatically (currently 7 rows, y up to 8.2).
+    capstone        true when the chain is deliberately short because the stat hits a hard ceiling
+    capNote         one-line explanation shown on the last level of a capped chain
+    lowerIsBetter   true for lower-is-better stats, which invert the factor direction
+    costTier        normal (+50%/级) | strong (+100%/级) | power (+150%/级) —— 该链的成本曲线档位
+                    （2026-10-23 晚用户「把曲线统一，50级封顶的都是19125收尾」：27 条 50 级链
+                    全部 normal、baseCost 750 → 第 50 级 = 750×25.5 = 19125、满链 496,875；
+                    只剩 RL_Quality(7 级) 与 RL_Passion(4 级) 两条短链仍是 power。
+                    2026-11-04 用户「一个循环跑满要的太多，改成第一级都是250，按曲线乘」：同一条
+                    normal 曲线整体 3 倍下调，baseCost 750→250 → 第 50 级 = 250×25.5 = 6375、
+                    满链 165,625；两条 power 短链按同比例 3 倍下调（RL_Quality 10,500→3,500、
+                    RL_Passion 16,500→5,500），保住它们「按档计价、比常规链贵一截」的定位）。
+                    第 1 级永远是 baseCost，档位只决定之后每一级在基础价上累加多少（线性，不指数）。
+                    缺省或无法识别按 normal 解析（LoopMath.CostSlope 负责兜底）。
+
+  Elements: maxLevel, capLevel, name, perLevel, baseCost,
+            description, effectText, descriptionFormula.
+            dangerous (REMOVED 2026-10-23, 用户要求): 曾是「该链 50 级满后出现的一次性研究
+            节点（红色标题），效果为把本条链的系数直接归零」。六条（告别娱乐/告别休息/告别饮食/
+            无视疼痛/不再流血/弹道锁定）已全部删除，研究页上不再有这些节点；归零效果改由独立
+            飞升的 zeroes 承接（见下）。解析与生成代码仍保留该分支（template.dangerous == null
+            时干净跳过），Verify 断言「没有任何 Loop 挂 dangerous」。
+
+  顶层元素 <Dangerous>（可选）：独立危险科技——不属于某一条链，而是若干条链**每条都练到
+            prereqLevel 级**后才可研究的总集节点，同样红标题、一次性。节点从开局就画在研究页上
+            （2026-11-04 用户要求：开局可见、前置照旧）。def **不携带** <prerequisites>：原版的
+            「前置研究项目」列表按 `IsFinished` 上色，而循环链要练满 50 级才 IsFinished——照原版
+            显示就会在门槛 10 级早已达标时仍标红，要改就得重画原版那块 UI，而用户 2026-11-04 明确
+            「不要动 UI」。所以 prerequisite 列表只用来生成门槛文字与判定，不进 def。
+            判定读本 mod 自己的等级计数，接缝两处：DangerousTech.Patch_CanStartNow 决定能不能点，
+            Patch_PrerequisitesCompleted 把原版那句「前置研究项目未完成」的判据也换成等级判定——
+            原版 DrawStartButton 读的是这个属性，不同步换掉就会出现「锁着却不给原因」，原版还会往
+            日志里打 "Research ... locked but no reasons given"。
+            属性
+            defName / cost / prerequisite（逗号分隔的 defName 列表）/ prereqLevel（每条前置链要练到的
+            等级，2026-11-04 定为 10；必须为正整数，缺失或非正数时整条 <Dangerous> 按格式错误丢弃，
+            宁可不生成节点也不生成一个谁都能点的节点）/ researchViewX,Y（必须自己写坐标，没有父链可
+            让位；写在它那一行的行首，比它点名的每条前置链都靠左——2026-11-04 用户要求「飞升要位于
+            最前边」，且 def 没有前置，原版也不会为它画连线）/ effect（效果种类，见下）。子元素 label / description。门槛文字由 ResearchLoopPlan.
+            AscensionGateLine 追加到节点 description 末尾（前置链名 + 需要的等级），中英各一份。
+            它是研究页上仅有的危险科技形态：2026-10-23 起 Loop 内的 <dangerous> 已全部删除。
+            effect 取值：
+              ascension = 灵能飞升：施放灵能技能不再消耗精神力、不再积累心灵熵
+                          （Source/PsychicAscension.cs + 飞升 hediff 的 PsychicEntropyGain ×0）
+              synthetic = 合成进化：机械师指挥无距离限制、机械体也吃循环科技加成
+                          （Source/SyntheticAscension.cs + LoopEligibility.IsLoopTarget）
+              cybernetic = 血肉苦弱：把 zeroes 列出的链直接当成已归零（不流血/不疼痛/不要娱乐
+                          饮食睡觉），并额外取消永久伤（Source/CyberneticAscension.cs）
+              gene = 设计进化：全部身体能力 +capacityOffset、<statFactors> 里的属性倍率、
+                     zeroes 列出的链归零（远程必中走的就是 RL_RangedAccuracy 的归零）
+            zeroes（可选，仅 cybernetic / gene 用）：逗号分隔的 loop defName。这些链的系数会被本节点
+                          直接按 ×0 计算，由 `DangerousTech.IsZeroed` 判定（该函数遍历所有**已研究**的
+                          独立科技各自的 zeroes 列表，不再要求链自己挂 <dangerous>——2026-10-23
+                          六条嵌套危险科技删除后，飞升就是归零的唯一实现）。
+                          列出的链必须是真实存在的 Loop，且是本节点的 prerequisite 子集（Verify 钉死）。
+            capacityOffset（可选）：给**每一个** PawnCapacityDef 加的能力偏移，1 = 全部 +100%。
+            <statFactors>（可选）：<li><stat>属性名</stat><value>倍率</value></li>，乘法挂在飞升自己的 hediff 上。
+            <buffLines>（可选）：<li>一行效果</li>，写进该飞升自己那条 hediff 的提示条；`mechs="false"` 表示不列进
+                          机械体那一版（机械体没有的需求/免疫之类）。
+
+  <description> 只写效果：一句话 + 每级数值，例如 "每级让远程武器的射击间隔缩短 5%"。
+  不写链长理由（那是 capNote 的活）、不写实现手段（补丁点/类名/StatPart）、不写 mod 兼容。
+  factor 链必须写出与 perLevel 一致的百分比，Verify 会断言两者相等。
+
+  <descriptionFormula> 只保留状态行，形状固定为两行：
+    "当前为第 {0} 级：{1}。" + 换行 + "{3}：{2}。"
+  不写「本项循环科技每级永久生效 / 只作用于自己的殖民者与奴隶」等套话（用户 2026-10-22 要求
+  全部删除，补充说明如「炮塔与机械体不吃此项」也一并去掉）；effectText 不写「越低越好」
+  注解。满级时 {2}/{3} 为空，描述就到「当前为第 N 级：…。」为止。
+
+  <name> 节点标题 = 效果本身，例如 "远程伤害" / "护甲值" / "闪避率"。
+  2026-10-23 用户「默认名称改为直接效果，删除群星风格的那些命名」：原来的三级命名
+  （conceptName 群星风科幻名 + conceptShort 短名 + conciseName 效果名，还要靠设置里的
+  「简洁标签」开关切换）已全部删除，只剩这一个字段。改它就能改所有表面：
+  研究节点标题、完成弹窗、AutoLoop 日志。
+
+  Layout (6 columns x 6 rows): x = 1 / 2.6 / 4.2 / 5.8 / 7.4 / 9.0, y = 1 / 2.2 / 3.4 / 4.6 / 5.8 / 7.0
+-->
+<ResearchLoopTemplates>
+
+  <!-- ============================ 民用：第 1~2 行 ============================ -->
+
+  <!--
+    技能等级 (2026-10-22): the eight per-skill chains (采矿/种植/建造/研究/冶炼/屠宰/医疗/射击) were
+    merged into this ONE project at the user's request. A level grants +1 to EVERY skill in the
+    'skills' list, so the node reads as "raise all work skills" instead of eight near-identical
+    ones. Pricing is the old 采矿 chain verbatim (baseCost 1500, same LoopMath.LevelCost curve) and
+    the chain runs 50 levels.
+  -->
+  <Loop defName="RL_Skills" costTier="normal" stat="-" mode="add" delivery="skill"
+        skills="Mining,Plants,Construction,Intellectual,Crafting,Cooking,Medicine,Shooting,Melee,Animals,Artistic,Social"
+        prerequisite="MultiAnalyzer" researchViewX="2.6" researchViewY="2.2">
+    <maxLevel>50</maxLevel><capLevel>0</capLevel>
+    <name>技能等级</name>
+    <nameEn>Skill Levels</nameEn>
+    <perLevel>1</perLevel>
+    <baseCost>250</baseCost>
+    <description>每级让全部技能各 +1（采矿、种植、建造、智识、制作、烹饪、医疗、射击、格斗、驯兽、艺术、社交）。</description>
+    <descriptionEn>Each level grants +1 to every skill (Mining, Plants, Construction, Intellectual, Crafting, Cooking, Medicine, Shooting, Melee, Animals, Artistic, Social).</descriptionEn>
+    <effectText>全部技能各 {1}</effectText>
+    <effectTextEn>All skills {1}</effectTextEn>
+    <descriptionFormula>当前为第 {0} 级：{1}。
+{3}：{2}。</descriptionFormula>
+    <descriptionFormulaEn>Current: level {0} - {1}.
+{3}: {2}.</descriptionFormulaEn>
+  </Loop>
+
+  <!-- 工作类循环不再加属性百分比，改成每级给对应技能 +1：见文件头 skill 属性说明。
+       2026-10-22：种植/建造/研究/冶炼/屠宰/医疗/射击七条已并入上面的「技能等级」(RL_Skills)。 -->
+  <Loop defName="RL_Labor" costTier="normal" stat="GeneralLaborSpeed" mode="factor" delivery="buff"
+        prerequisite="MultiAnalyzer" researchViewX="7.4" researchViewY="4.6">
+    <maxLevel>50</maxLevel><capLevel>0</capLevel>
+    <name>通用劳作速度</name>
+    <nameEn>General Labor Speed</nameEn>
+    <perLevel>0.05</perLevel>
+    <baseCost>250</baseCost>
+    <description>每级让通用劳作速度提高 5%（切石、冶炼、缝制、锻造、艺术等）。</description>
+    <descriptionEn>Each level raises general labor speed by 5% (stonecutting, smelting, tailoring, smithing, art and more).</descriptionEn>
+    <effectText>通用劳作速度 ×{1}</effectText>
+    <effectTextEn>General labor speed x{1}</effectTextEn>
+    <descriptionFormula>当前为第 {0} 级：{1}。
+{3}：{2}。</descriptionFormula>
+    <descriptionFormulaEn>Current: level {0} - {1}.
+{3}: {2}.</descriptionFormulaEn>
+  </Loop>
+
+  <!-- ============================ 战斗：第 2~4 行 ============================ -->
+
+  <Loop defName="RL_RangedDamage" costTier="normal" stat="-" mode="factor" delivery="patch"
+        prerequisite="MultiAnalyzer" researchViewX="7.4" researchViewY="7">
+    <maxLevel>50</maxLevel><capLevel>0</capLevel>
+    <name>远程伤害</name>
+    <nameEn>Ranged Damage</nameEn>
+    <perLevel>0.05</perLevel>
+    <baseCost>250</baseCost>
+    <description>每级让自己殖民者发射的远程武器伤害提高 5%，结果至少 +1。</description>
+    <descriptionEn>Each level raises the damage of ranged weapons fired by your colonists by 5%, with a minimum of +1.</descriptionEn>
+    <effectText>殖民者发射的远程武器伤害 ×{1}</effectText>
+    <effectTextEn>Ranged damage from colonists x{1}</effectTextEn>
+    <descriptionFormula>当前为第 {0} 级：{1}。
+{3}：{2}。</descriptionFormula>
+    <descriptionFormulaEn>Current: level {0} - {1}.
+{3}: {2}.</descriptionFormulaEn>
+  </Loop>
+
+  <Loop defName="RL_MeleeDamage" costTier="normal" stat="MeleeDamageFactor" mode="factor" delivery="buff"
+        prerequisite="MultiAnalyzer" researchViewX="5.8" researchViewY="7">
+    <maxLevel>50</maxLevel><capLevel>0</capLevel>
+    <name>近战伤害</name>
+    <nameEn>Melee Damage</nameEn>
+    <perLevel>0.05</perLevel>
+    <baseCost>250</baseCost>
+    <description>每级让近战攻击伤害提高 5%。</description>
+    <descriptionEn>Each level raises melee damage by 5%.</descriptionEn>
+    <effectText>近战攻击伤害 ×{1}</effectText>
+    <effectTextEn>Melee damage x{1}</effectTextEn>
+    <descriptionFormula>当前为第 {0} 级：{1}。
+{3}：{2}。</descriptionFormula>
+    <descriptionFormulaEn>Current: level {0} - {1}.
+{3}: {2}.</descriptionFormulaEn>
+  </Loop>
+
+  <Loop defName="RL_DamageTaken" costTier="normal" stat="IncomingDamageFactor" mode="factor" delivery="buff"
+        prerequisite="MultiAnalyzer" researchViewX="1" researchViewY="1" lowerIsBetter="true">
+    <maxLevel>50</maxLevel><capLevel>0</capLevel>
+    <name>承受伤害</name>
+    <nameEn>Damage Taken</nameEn>
+    <perLevel>0.05</perLevel>
+    <baseCost>250</baseCost>
+    <description>每级让自己殖民者受到的伤害降低 5%。</description>
+    <descriptionEn>Each level reduces the damage your colonists take by 5%.</descriptionEn>
+    <effectText>受到伤害 ×{1}</effectText>
+    <effectTextEn>Damage taken x{1}</effectTextEn>
+    <descriptionFormula>当前为第 {0} 级：{1}。
+{3}：{2}。</descriptionFormula>
+    <descriptionFormulaEn>Current: level {0} - {1}.
+{3}: {2}.</descriptionFormulaEn>
+  </Loop>
+
+  <Loop defName="RL_Armor" costTier="normal" stat="ArmorRating_Sharp" mode="add" delivery="buff"
+        stats="ArmorRating_Sharp,ArmorRating_Blunt,ArmorRating_Heat"
+        clampMin="0" clampMax="2.0"
+        prerequisite="MultiAnalyzer" researchViewX="9.0" researchViewY="4.6">
+    <maxLevel>50</maxLevel><capLevel>0</capLevel>
+    <name>护甲值</name>
+    <nameEn>Armor Rating</nameEn>
+    <perLevel>0.03</perLevel>
+    <baseCost>250</baseCost>
+    <description>每级让锐器、钝器、热能护甲各 +0.03，上限 2.0。</description>
+    <descriptionEn>Each level adds +0.03 to sharp, blunt and heat armor, up to 2.0.</descriptionEn>
+    <effectText>锐器/钝器/热能护甲各 {1}</effectText>
+    <effectTextEn>Sharp/blunt/heat armor {1}</effectTextEn>
+    <descriptionFormula>当前为第 {0} 级：{1}。
+{3}：{2}。</descriptionFormula>
+    <descriptionFormulaEn>Current: level {0} - {1}.
+{3}: {2}.</descriptionFormulaEn>
+  </Loop>
+
+  <!--
+    RL_Dodge / RL_MeleeHit（2026-10-23 改为补丁通道）：1.6 的 MeleeDodgeChance 与 MeleeHitChance
+    都带 postProcessCurve，且把最终概率封顶（命中约 98%、闪避约 50%，都在 raw 60 技能点处到顶）。
+    buff hediff 的 statOffsets 在曲线**之前**生效，所以挂在 buff 上会在曲线封顶后被整个吞掉——
+    旧写法 +1 点/级，第 41–50 级被曲线吃掉、毫无效果。
+    现在两条走补丁通道（Source/Patches.cs 的 Patch_MeleeHitChance / Patch_MeleeDodgeChance）：
+    在 Verb_MeleeAttack.GetNonMissChance / GetDodgeChance 的**返回值**（已是曲线后的最终概率）上
+    做加法，每级 +1 个百分点，叠加在原版封顶值之上、可突破封顶，一路到真正的 100% 天花板
+    （Rand.Chance 语义，补丁里 Mathf.Clamp01 收口）。perLevel=1 的语义由此从「技能点」变成
+    「百分点」，故 stat="-"、delivery="patch"。
+  -->
+  <Loop defName="RL_Dodge" costTier="normal" stat="-" mode="add" delivery="patch"
+        prerequisite="MultiAnalyzer" researchViewX="2.6" researchViewY="1">
+    <maxLevel>50</maxLevel><capLevel>0</capLevel>
+    <name>闪避率</name>
+    <nameEn>Dodge Chance</nameEn>
+    <perLevel>1</perLevel>
+    <baseCost>250</baseCost>
+    <description>每级让最终近战闪避率提高 1 个百分点，叠加在原版闪避曲线的封顶值之上，可突破该封顶，至多 100%。</description>
+    <descriptionEn>Each level raises final melee dodge chance by 1 percentage point, on top of the vanilla curve's cap - it can exceed that cap, up to 100%.</descriptionEn>
+    <effectText>近战闪避率 {1} 个百分点</effectText>
+    <effectTextEn>Melee dodge chance {1} pp</effectTextEn>
+    <descriptionFormula>当前为第 {0} 级：{1}。
+{3}：{2}。</descriptionFormula>
+    <descriptionFormulaEn>Current: level {0} - {1}.
+{3}: {2}.</descriptionFormulaEn>
+  </Loop>
+
+  <Loop defName="RL_MeleeHit" costTier="normal" stat="-" mode="add" delivery="patch"
+        prerequisite="MultiAnalyzer" researchViewX="9.0" researchViewY="7">
+    <maxLevel>50</maxLevel><capLevel>0</capLevel>
+    <name>近战命中率</name>
+    <nameEn>Melee Hit Chance</nameEn>
+    <perLevel>1</perLevel>
+    <baseCost>250</baseCost>
+    <description>每级让最终近战命中率提高 1 个百分点，叠加在原版命中曲线的封顶值之上，可突破该封顶，至多 100%。</description>
+    <descriptionEn>Each level raises final melee hit chance by 1 percentage point, on top of the vanilla curve's cap - it can exceed that cap, up to 100%.</descriptionEn>
+    <effectText>近战命中率 {1} 个百分点</effectText>
+    <effectTextEn>Melee hit chance {1} pp</effectTextEn>
+    <descriptionFormula>当前为第 {0} 级：{1}。
+{3}：{2}。</descriptionFormula>
+    <descriptionFormulaEn>Current: level {0} - {1}.
+{3}: {2}.</descriptionFormulaEn>
+  </Loop>
+
+  <Loop defName="RL_Stagger" costTier="normal" stat="StaggerDurationFactor" mode="factor" delivery="buff"
+        prerequisite="MultiAnalyzer" researchViewX="5.8" researchViewY="4.6" lowerIsBetter="true">
+    <maxLevel>50</maxLevel><capLevel>0</capLevel>
+    <name>硬直时间</name>
+    <nameEn>Stagger Duration</nameEn>
+    <perLevel>0.05</perLevel>
+    <baseCost>250</baseCost>
+    <description>每级让受击硬直时长缩短 5%。</description>
+    <descriptionEn>Each level shortens stagger duration by 5%.</descriptionEn>
+    <effectText>受击硬直时长 ×{1}</effectText>
+    <effectTextEn>Stagger duration x{1}</effectTextEn>
+    <descriptionFormula>当前为第 {0} 级：{1}。
+{3}：{2}。</descriptionFormula>
+    <descriptionFormulaEn>Current: level {0} - {1}.
+{3}: {2}.</descriptionFormulaEn>
+  </Loop>
+
+  <Loop defName="RL_RangedCooldown" costTier="normal" stat="RangedCooldownFactor" mode="factor" delivery="buff"
+        prerequisite="MultiAnalyzer" researchViewX="12.2" researchViewY="7" lowerIsBetter="true">
+    <maxLevel>50</maxLevel><capLevel>0</capLevel>
+    <name>远程后摇</name>
+    <nameEn>Ranged Cooldown</nameEn>
+    <perLevel>0.05</perLevel>
+    <baseCost>250</baseCost>
+    <description>每级让远程武器的射击间隔缩短 5%。</description>
+    <descriptionEn>Each level shortens the interval between ranged shots by 5%.</descriptionEn>
+    <effectText>远程武器射击间隔 ×{1}</effectText>
+    <effectTextEn>Ranged shot interval x{1}</effectTextEn>
+    <descriptionFormula>当前为第 {0} 级：{1}。
+{3}：{2}。</descriptionFormula>
+    <descriptionFormulaEn>Current: level {0} - {1}.
+{3}: {2}.</descriptionFormulaEn>
+  </Loop>
+
+  <Loop defName="RL_Aiming" costTier="normal" stat="AimingDelayFactor" mode="factor" delivery="buff"
+        prerequisite="MultiAnalyzer" researchViewX="2.6" researchViewY="7" lowerIsBetter="true">
+    <maxLevel>50</maxLevel><capLevel>0</capLevel>
+    <name>蓄力时间</name>
+    <nameEn>Aiming Time</nameEn>
+    <perLevel>0.05</perLevel>
+    <baseCost>250</baseCost>
+    <description>每级让远程武器与技能的施放前摇缩短 5%。</description>
+    <descriptionEn>Each level shortens the warm-up of ranged weapons and abilities by 5%.</descriptionEn>
+    <effectText>远程与技能施放前摇 ×{1}</effectText>
+    <effectTextEn>Ranged/ability warm-up x{1}</effectTextEn>
+    <descriptionFormula>当前为第 {0} 级：{1}。
+{3}：{2}。</descriptionFormula>
+    <descriptionFormulaEn>Current: level {0} - {1}.
+{3}: {2}.</descriptionFormulaEn>
+  </Loop>
+
+  <Loop defName="RL_MeleeCooldown" costTier="normal" stat="MeleeCooldownFactor" mode="factor" delivery="buff"
+        prerequisite="MultiAnalyzer" researchViewX="10.6" researchViewY="7" lowerIsBetter="true">
+    <maxLevel>50</maxLevel><capLevel>0</capLevel>
+    <name>近战后摇</name>
+    <nameEn>Melee Cooldown</nameEn>
+    <perLevel>0.05</perLevel>
+    <baseCost>250</baseCost>
+    <description>每级让近战挥击后摇缩短 5%。</description>
+    <descriptionEn>Each level shortens the recovery after a melee swing by 5%.</descriptionEn>
+    <effectText>近战挥击后摇 ×{1}</effectText>
+    <effectTextEn>Melee recovery x{1}</effectTextEn>
+    <descriptionFormula>当前为第 {0} 级：{1}。
+{3}：{2}。</descriptionFormula>
+    <descriptionFormulaEn>Current: level {0} - {1}.
+{3}: {2}.</descriptionFormulaEn>
+  </Loop>
+
+  <Loop defName="RL_Mobility" costTier="normal" stat="MoveSpeed" mode="factor" delivery="buff"
+        prerequisite="MultiAnalyzer" researchViewX="5.8" researchViewY="1">
+    <maxLevel>50</maxLevel><capLevel>0</capLevel>
+    <name>移动速度</name>
+    <nameEn>Move Speed</nameEn>
+    <perLevel>0.05</perLevel>
+    <baseCost>250</baseCost>
+    <description>每级让移动速度提高 5%。</description>
+    <descriptionEn>Each level raises move speed by 5%.</descriptionEn>
+    <effectText>移动速度 ×{1}</effectText>
+    <effectTextEn>Move speed x{1}</effectTextEn>
+    <descriptionFormula>当前为第 {0} 级：{1}（基础 3.0 格/秒）。
+{3}：{2}。</descriptionFormula>
+    <descriptionFormulaEn>Current: level {0} - {1} (base 3.0 cells/s).
+{3}: {2}.</descriptionFormulaEn>
+  </Loop>
+
+  <Loop defName="RL_Psychic" costTier="normal" stat="PsychicSensitivity" mode="factor" delivery="buff"
+        prerequisite="MultiAnalyzer" researchViewX="7.4" researchViewY="3.4" mechApplies="false">
+    <maxLevel>50</maxLevel><capLevel>0</capLevel>
+    <name>灵能敏感度</name>
+    <nameEn>Psychic Sensitivity</nameEn>
+    <perLevel>0.05</perLevel>
+    <baseCost>250</baseCost>
+    <description>每级让灵能敏感度提高 5%。</description>
+    <descriptionEn>Each level raises psychic sensitivity by 5%.</descriptionEn>
+    <effectText>灵能敏感度 ×{1}</effectText>
+    <effectTextEn>Psychic sensitivity x{1}</effectTextEn>
+    <descriptionFormula>当前为第 {0} 级：{1}。
+{3}：{2}。</descriptionFormula>
+    <descriptionFormulaEn>Current: level {0} - {1}.
+{3}: {2}.</descriptionFormulaEn>
+  </Loop>
+
+  <!-- ==================== 固定量 / 机械 / 灵能：第 4~5 行 ==================== -->
+
+  <Loop defName="RL_MechBandwidth" costTier="normal" stat="MechBandwidth" mode="add" delivery="buff"
+        prerequisite="MultiAnalyzer" researchViewX="2.6" researchViewY="4.6" mechApplies="false">
+    <maxLevel>50</maxLevel><capLevel>0</capLevel>
+    <name>机械带宽</name>
+    <nameEn>Mech Bandwidth</nameEn>
+    <perLevel>1</perLevel>
+    <baseCost>250</baseCost>
+    <description>每级让机械带宽 +1 点。</description>
+    <descriptionEn>Each level grants +1 mech bandwidth.</descriptionEn>
+    <effectText>机械带宽 {1} 点</effectText>
+    <effectTextEn>Mech bandwidth {1}</effectTextEn>
+    <descriptionFormula>当前为第 {0} 级：{1}。
+{3}：{2}。</descriptionFormula>
+    <descriptionFormulaEn>Current: level {0} - {1}.
+{3}: {2}.</descriptionFormulaEn>
+  </Loop>
+
+  <Loop defName="RL_MechEnergy" costTier="normal" stat="MechEnergyUsageFactor" mode="factor" delivery="buff"
+        prerequisite="MultiAnalyzer" researchViewX="4.2" researchViewY="4.6" lowerIsBetter="true">
+    <maxLevel>50</maxLevel><capLevel>0</capLevel>
+    <name>机械能耗</name>
+    <nameEn>Mech Energy Use</nameEn>
+    <perLevel>0.05</perLevel>
+    <baseCost>250</baseCost>
+    <description>每级让机械能耗降低 5%。</description>
+    <descriptionEn>Each level reduces mech energy use by 5%.</descriptionEn>
+    <effectText>机械能耗 ×{1}</effectText>
+    <effectTextEn>Mech energy use x{1}</effectTextEn>
+    <descriptionFormula>当前为第 {0} 级：{1}。
+{3}：{2}。</descriptionFormula>
+    <descriptionFormulaEn>Current: level {0} - {1}.
+{3}: {2}.</descriptionFormulaEn>
+  </Loop>
+
+  <Loop defName="RL_PsyEntropyMax" costTier="normal" stat="PsychicEntropyMax" mode="add" delivery="buff"
+        prerequisite="MultiAnalyzer" researchViewX="2.6" researchViewY="3.4" mechApplies="false">
+    <maxLevel>50</maxLevel><capLevel>0</capLevel>
+    <name>灵能熵上限</name>
+    <nameEn>Psychic Entropy Max</nameEn>
+    <perLevel>10</perLevel>
+    <baseCost>250</baseCost>
+    <description>每级让灵能熵上限 +10 点。</description>
+    <descriptionEn>Each level adds +10 to maximum psychic entropy.</descriptionEn>
+    <effectText>灵能熵上限 {1} 点</effectText>
+    <effectTextEn>Max psychic entropy {1}</effectTextEn>
+    <descriptionFormula>当前为第 {0} 级：{1}（基础 30 点）。
+{3}：{2}。</descriptionFormula>
+    <descriptionFormulaEn>Current: level {0} - {1} (base 30).
+{3}: {2}.</descriptionFormulaEn>
+  </Loop>
+
+  <Loop defName="RL_PsyEntropyRecovery" costTier="normal" stat="PsychicEntropyRecoveryRate" mode="add" delivery="buff"
+        prerequisite="MultiAnalyzer" researchViewX="4.2" researchViewY="3.4" mechApplies="false">
+    <maxLevel>50</maxLevel><capLevel>0</capLevel>
+    <name>灵能熵恢复</name>
+    <nameEn>Entropy Recovery</nameEn>
+    <perLevel>0.05</perLevel>
+    <baseCost>250</baseCost>
+    <description>每级让灵能熵恢复速度 +0.05/秒。</description>
+    <descriptionEn>Each level adds +0.05/s to psychic entropy recovery.</descriptionEn>
+    <effectText>灵能熵恢复速率 {1}/秒</effectText>
+    <effectTextEn>Entropy recovery {1}/s</effectTextEn>
+    <descriptionFormula>当前为第 {0} 级：{1}（基础 0.54/秒）。
+{3}：{2}。</descriptionFormula>
+    <descriptionFormulaEn>Current: level {0} - {1} (base 0.54/s).
+{3}: {2}.</descriptionFormulaEn>
+  </Loop>
+
+  <!-- ==================== 其它民用 / 补丁点项目：第 6 行 ==================== -->
+
+  <Loop defName="RL_RestEfficiency" costTier="normal" stat="RestRateMultiplier" mode="factor" delivery="buff"
+        prerequisite="MultiAnalyzer" researchViewX="10.6" researchViewY="5.8" mechApplies="false">
+    <maxLevel>50</maxLevel><capLevel>0</capLevel>
+    <name>休息效率</name>
+    <nameEn>Rest Efficiency</nameEn>
+    <perLevel>0.05</perLevel>
+    <baseCost>250</baseCost>
+    <description>每级让睡眠恢复精力的速度提高 5%。</description>
+    <descriptionEn>Each level raises the rate at which sleep restores rest by 5%.</descriptionEn>
+    <effectText>休息恢复速度 ×{1}</effectText>
+    <effectTextEn>Rest recovery x{1}</effectTextEn>
+    <descriptionFormula>当前为第 {0} 级：{1}。
+{3}：{2}。</descriptionFormula>
+    <descriptionFormulaEn>Current: level {0} - {1}.
+{3}: {2}.</descriptionFormulaEn>
+  </Loop>
+
+  <Loop defName="RL_Meditation" costTier="normal" stat="MeditationFocusGain" mode="factor" delivery="buff"
+        prerequisite="MultiAnalyzer" researchViewX="5.8" researchViewY="3.4" mechApplies="false">
+    <maxLevel>50</maxLevel><capLevel>0</capLevel>
+    <name>冥想速率</name>
+    <nameEn>Meditation Rate</nameEn>
+    <perLevel>0.05</perLevel>
+    <baseCost>250</baseCost>
+    <description>每级让冥想专注的获取速度提高 5%。</description>
+    <descriptionEn>Each level raises meditation focus gain by 5%.</descriptionEn>
+    <effectText>冥想专注获取 ×{1}</effectText>
+    <effectTextEn>Meditation focus gain x{1}</effectTextEn>
+    <descriptionFormula>当前为第 {0} 级：{1}。
+{3}：{2}。</descriptionFormula>
+    <descriptionFormulaEn>Current: level {0} - {1}.
+{3}: {2}.</descriptionFormulaEn>
+  </Loop>
+
+  <Loop defName="RL_JoyFall" costTier="normal" stat="JoyFallRateFactor" mode="factor" delivery="buff"
+        prerequisite="MultiAnalyzer" researchViewX="5.8" researchViewY="5.8" lowerIsBetter="true" mechApplies="false">
+    <maxLevel>50</maxLevel><capLevel>0</capLevel>
+    <name>娱乐衰减</name>
+    <nameEn>Joy Fall Rate</nameEn>
+    <perLevel>0.05</perLevel>
+    <baseCost>250</baseCost>
+    <description>每级让娱乐值的下降速度降低 5%。</description>
+    <descriptionEn>Each level slows the fall of joy by 5%.</descriptionEn>
+    <effectText>娱乐值下降速率 ×{1}</effectText>
+    <effectTextEn>Joy fall rate x{1}</effectTextEn>
+    <descriptionFormula>当前为第 {0} 级：{1}。
+{3}：{2}。</descriptionFormula>
+    <descriptionFormulaEn>Current: level {0} - {1}.
+{3}: {2}.</descriptionFormulaEn>
+  </Loop>
+
+  <Loop defName="RL_RestFall" costTier="normal" stat="RestFallRateFactor" mode="factor" delivery="buff"
+        prerequisite="MultiAnalyzer" researchViewX="7.4" researchViewY="5.8" lowerIsBetter="true" mechApplies="false">
+    <maxLevel>50</maxLevel><capLevel>0</capLevel>
+    <name>疲劳衰减</name>
+    <nameEn>Rest Fall Rate</nameEn>
+    <perLevel>0.05</perLevel>
+    <baseCost>250</baseCost>
+    <description>每级让疲劳的累积速度降低 5%。</description>
+    <descriptionEn>Each level slows the build-up of tiredness by 5%.</descriptionEn>
+    <effectText>疲劳累积速率 ×{1}</effectText>
+    <effectTextEn>Tiredness build-up x{1}</effectTextEn>
+    <descriptionFormula>当前为第 {0} 级：{1}。
+{3}：{2}。</descriptionFormula>
+    <descriptionFormulaEn>Current: level {0} - {1}.
+{3}: {2}.</descriptionFormulaEn>
+  </Loop>
+
+  <Loop defName="RL_FoodFall" costTier="normal" stat="-" mode="factor" delivery="patch"
+        prerequisite="MultiAnalyzer" researchViewX="9.0" researchViewY="5.8" lowerIsBetter="true" mechApplies="false">
+    <maxLevel>50</maxLevel><capLevel>0</capLevel>
+    <name>饥饿衰减</name>
+    <nameEn>Hunger Rate</nameEn>
+    <perLevel>0.05</perLevel>
+    <baseCost>250</baseCost>
+    <description>每级让饥饿值的累积速度降低 5%。</description>
+    <descriptionEn>Each level slows the build-up of hunger by 5%.</descriptionEn>
+    <effectText>饥饿值累积速率 ×{1}</effectText>
+    <effectTextEn>Hunger build-up x{1}</effectTextEn>
+    <descriptionFormula>当前为第 {0} 级：{1}。
+{3}：{2}。</descriptionFormula>
+    <descriptionFormulaEn>Current: level {0} - {1}.
+{3}: {2}.</descriptionFormulaEn>
+  </Loop>
+
+  <Loop defName="RL_Quality" costTier="power" stat="-" mode="tiers" delivery="quality" capstone="true"
+        capNote="研究完即可让极差材料也产出传奇品质。"
+        capNoteEn="Researching this makes even awful materials produce legendary gear."
+        prerequisite="MultiAnalyzer" researchViewX="7.4" researchViewY="1"
+        costInverseEffectScale="true">
+    <maxLevel>7</maxLevel><capLevel>7</capLevel>
+    <name>物品品质</name>
+    <nameEn>Item Quality</nameEn>
+    <perLevel>1</perLevel>
+    <baseCost>3500</baseCost>
+    <description>每级让制作的物品品质提升 1 档（极差到传奇共 7 档），即使是极差材料也能做出传奇品质。</description>
+    <descriptionEn>Each level raises the quality of crafted items by one tier (7 tiers, awful to legendary) - even awful materials can yield legendary gear.</descriptionEn>
+    <effectText>品质 +{1} 档</effectText>
+    <effectTextEn>Quality +{1} tier(s)</effectTextEn>
+    <descriptionFormula>当前为第 {0} 级：{1}。
+{3}：{2}</descriptionFormula>
+    <descriptionFormulaEn>Current: level {0} - {1}.
+{3}: {2}.</descriptionFormulaEn>
+  </Loop>
+
+  <!-- ============== 机体韧化 / 远程精准：第 7 行（页面按坐标自动扩展） ============== -->
+
+  <Loop defName="RL_BodyPartHealth" costTier="normal" stat="-" mode="factor" delivery="patch"
+        prerequisite="MultiAnalyzer" researchViewX="4.2" researchViewY="1">
+    <maxLevel>50</maxLevel><capLevel>0</capLevel>
+    <name>部位血量</name>
+    <nameEn>Part Health</nameEn>
+    <perLevel>0.1</perLevel>
+    <baseCost>250</baseCost>
+    <description>每级让身体各部位的最大血量提高 10%。</description>
+    <descriptionEn>Each level raises the maximum health of every body part by 10%.</descriptionEn>
+    <effectText>部位血量 ×{1}</effectText>
+    <effectTextEn>Part health x{1}</effectTextEn>
+    <descriptionFormula>当前为第 {0} 级：{1}。
+{3}：{2}。</descriptionFormula>
+    <descriptionFormulaEn>Current: level {0} - {1}.
+{3}: {2}.</descriptionFormulaEn>
+  </Loop>
+
+  <!--
+    RL_PainResist / RL_BleedRate: 1.6 没有 PainFactor、也没有流血速率这两个 StatDef（查过
+    Data/Core/Defs/Stats），所以这两条链不挂 StatDef，而是走 buff hediff 自己的 stage 字段
+    （stageField="painFactor" / "totalBleedFactor"）。两者都是「乘在已有伤口上」的全局倍率：
+    painFactor 进 HediffSet.PainTotal（连带压低意识惩罚与「疼痛」心情），totalBleedFactor 进
+    HediffSet.BleedRateTotal（只影响失血速度，不影响伤口严重度与愈合）。数值与承伤链同形：
+    factor + lowerIsBetter，1 - 0.05 每级，50 级 ≈ ×0.08（与承伤链同形）。
+  -->
+  <Loop defName="RL_PainResist" costTier="normal" stat="-" mode="factor" delivery="buff"
+        stageField="painFactor" lowerIsBetter="true"
+        prerequisite="MultiAnalyzer" researchViewX="2.6" researchViewY="5.8" mechApplies="false">
+    <maxLevel>50</maxLevel><capLevel>0</capLevel>
+    <name>疼痛抵抗</name>
+    <nameEn>Pain Resistance</nameEn>
+    <perLevel>0.0493</perLevel>
+    <baseCost>250</baseCost>
+    <description>每级让疼痛值降低 4.93%。</description>
+    <descriptionEn>Each level reduces pain by 4.93%.</descriptionEn>
+    <effectText>疼痛值 ×{1}</effectText>
+    <effectTextEn>Pain x{1}</effectTextEn>
+    <descriptionFormula>当前为第 {0} 级：{1}。
+{3}：{2}。</descriptionFormula>
+    <descriptionFormulaEn>Current: level {0} - {1}.
+{3}: {2}.</descriptionFormulaEn>
+  </Loop>
+
+  <Loop defName="RL_BleedRate" costTier="normal" stat="-" mode="factor" delivery="buff"
+        stageField="totalBleedFactor" lowerIsBetter="true"
+        prerequisite="MultiAnalyzer" researchViewX="4.2" researchViewY="5.8" mechApplies="false">
+    <maxLevel>50</maxLevel><capLevel>0</capLevel>
+    <name>流血速度</name>
+    <nameEn>Bleeding Rate</nameEn>
+    <perLevel>0.0493</perLevel>
+    <baseCost>250</baseCost>
+    <description>每级让流血速率降低 4.93%。</description>
+    <descriptionEn>Each level reduces bleeding rate by 4.93%.</descriptionEn>
+    <effectText>流血速率 ×{1}</effectText>
+    <effectTextEn>Bleeding rate x{1}</effectTextEn>
+    <descriptionFormula>当前为第 {0} 级：{1}。
+{3}：{2}。</descriptionFormula>
+    <descriptionFormulaEn>Current: level {0} - {1}.
+{3}: {2}.</descriptionFormulaEn>
+  </Loop>
+
+  <!--
+    RL_Passion (技能兴趣激发突破): 每级让符合条件的殖民者与奴隶的全部技能兴趣 +1 档。
+    4 级：原版环境下第 2 级即到双火（Major），后两级饱和；装 VSE (Vanilla Skills Expanded)
+    时从单火一路顶到三火 (VSE_Critical)。写法见 Source/ResearchLoopPassion.cs：走
+    PassionExtension.IncrementPassion（VSE 接管后按 learnRateFactor 升序 +1、到顶回卷），并
+    在顶档前停下，避免把高兴趣小人卷成乏味 (VSE_Apathy)。效果固定 +1/级、不随倍率滑块缩放，
+    研究成本随成本倍率滑块反向缩放（costInverseEffectScale）。
+  -->
+  <Loop defName="RL_Passion" costTier="power" stat="-" mode="add" delivery="passion"
+        prerequisite="MultiAnalyzer" researchViewX="1" researchViewY="2.2"
+        costInverseEffectScale="true">
+    <maxLevel>4</maxLevel><capLevel>0</capLevel>
+    <name>技能兴趣</name>
+    <nameEn>Skill Passions</nameEn>
+    <perLevel>1</perLevel>
+    <baseCost>5500</baseCost>
+    <description>每级让自己的殖民者与奴隶的每一项技能兴趣提升一级。</description>
+    <descriptionEn>Each level raises every skill passion of your colonists and slaves by one step.</descriptionEn>
+    <effectText>全部技能兴趣 {1} 级</effectText>
+    <effectTextEn>All skill passions {1}</effectTextEn>
+    <descriptionFormula>当前为第 {0} 级：{1}。
+{3}：{2}。</descriptionFormula>
+    <descriptionFormulaEn>Current: level {0} - {1}.
+{3}: {2}.</descriptionFormulaEn>
+  </Loop>
+
+  <!--
+    远程精准度（2026-10-22）：射击技能已并入「技能等级」(RL_Skills)，这里只剩补丁通道这一条。
+
+    RL_RangedAccuracy（远程精准度）走补丁通道，乘的是「失误率」而不是「命中率」：
+    f' = 1 - (1 - f) * k。远程没有可加的命中率 stat（ShootingAccuracyPawn 是每格衰减底数，原版要拿它
+    做 pow(距离)），而给命中率做加法会被 ShotReport 末尾的 Clamp01 钳死——这正是四段精度系数那条路
+    30 级就到顶的原因。乘失误率是渐近的，永不触顶，也永不浪费等级；掩体、天气、武器精度是另外的
+    独立因子，不受影响。
+  -->
+  <Loop defName="RL_RangedAccuracy" costTier="normal" stat="-" mode="factor" delivery="patch"
+        prerequisite="MultiAnalyzer" researchViewX="4.2" researchViewY="7" lowerIsBetter="true">
+    <maxLevel>50</maxLevel><capLevel>0</capLevel>
+    <name>射击失误率</name>
+    <nameEn>Ranged Miss Chance</nameEn>
+    <perLevel>0.03</perLevel>
+    <baseCost>250</baseCost>
+    <description>每级让自己殖民者射击时的失误率降低 3%。</description>
+    <descriptionEn>Each level reduces your colonists' ranged miss chance by 3%.</descriptionEn>
+    <effectText>射击失误率 ×{1}</effectText>
+    <effectTextEn>Ranged miss chance x{1}</effectTextEn>
+    <descriptionFormula>当前为第 {0} 级：{1}。
+{3}：{2}。</descriptionFormula>
+    <descriptionFormulaEn>Current: level {0} - {1}.
+{3}: {2}</descriptionFormulaEn>
+    <!--
+      原「弹道锁定」节点（本条链的 50 级一次性危险科技）已于 2026-10-23 按用户要求删除。
+      它当年做的事——把整份 ShotReport 改写成「全因子 1、掩体阻挡 0」，让 TryCastShot 里的
+      两次 Rand.Chance 都必然通过——现在由设计进化的 zeroes="RL_RangedAccuracy" 驱动
+      （Source/Patches.cs 的 Patch_ShotReportPerfect 判 DangerousTech.IsZeroed）。
+      注意归零只清射手因子不够：武器自身的精度、天气、烟雾、目标体积、掩体仍各自相乘，
+      所以必须重写整份报告。强制散布武器（机枪/榴弹）在生成报告之前就走进散射分支，
+      不受影响——它们是面杀伤武器，本来就不做瞄准判定。
+    -->
+  </Loop>
+
+  <!--
+    ============================ 独立危险科技：心胜于物 ============================
+
+    用户要求（2026-10-22）：研究完灵能熵上限、灵能熵恢复、冥想速率、灵能系数四条链之后，
+    才能研究 10 万点的危险科技「心胜于物」，效果是殖民者使用技能不再消耗精神力、不增加心灵熵。
+    用户改口（2026-11-04）：四个飞升节点开局就显示在研究页上，前置条件保持不变（未满级时原版
+    把它们灰掉、点不动，不再由本 mod 隐藏）。同日「四个飞升统一改成 1w 点」：四条飞升节点
+    一律 cost=10000（原 10 万、设计进化 15 万），前置链要求不变。
+
+    它是研究页上仅有的危险科技形态（2026-10-23 起 Loop 内的 <dangerous> 已全部删除），
+    不属于任何一条链，而是四条链的总集节点：
+      - 前置是四条链的 defName，每条练到 prereqLevel（10）级即可，由本 mod 自己的等级计数判定，
+        不是原版的「该链 finished」（链练满 50 级才是 finished）；这份列表不写进 def 的
+        <prerequisites>，所以面板上没有原版那块前置列表，门槛文字只由 description 末行给出；
+      - 它必须自己写坐标（没有父链节点可以接管），写在灵能那一行的行首：四条前置（熵上限/熵恢复/
+        冥想/灵能敏感度）占 Y=3.4 的 X=2.6/4.2/5.8/7.4，飞升节点在 X=1.0——用户 2026-11-04 要求
+        「飞升要位于最前边」，def 也没有前置，原版不会为它画连线；
+      - 它不改任何链的系数，效果由 effect="ascension" 声明，实现见 Source/PsychicAscension.cs
+        （精神力）与 Hediff_ResearchLoop（心灵熵获取 ×0）。
+  -->
+  <!-- 英文原版（群星天赋 Mind Over Matter flavor，已写入下方 description 第二行，与中文
+       flavor 句同色 #B366FF）：
+       "Only a fraction of the potential contained within our minds has been unlocked. The latent
+        psionic abilities of our species are only now beginning to manifest in certain individuals." -->
+  <Dangerous defName="RL_MindOverMatter" cost="10000"
+             prerequisite="RL_PsyEntropyMax,RL_PsyEntropyRecovery,RL_Meditation,RL_Psychic"
+             prereqLevel="10"
+             researchViewX="1.0" researchViewY="3.4" effect="ascension"
+             hediffDef="RL_Hediff_Ascension_Psy">
+    <label>心胜于物</label>
+    <labelEn>Mind Over Matter</labelEn>
+    <description>&lt;color=#B366FF&gt;意识是最后一片未被测绘的疆域，这个物种与生俱来的灵能天赋，此前只在少数个体身上露出过一角。当灵能不再向施法者索取代价，天赋便成了本能。&lt;/color&gt;</description>
+    <descriptionEn>&lt;color=#B366FF&gt;Only a fraction of the potential contained within our minds has been unlocked. The latent psionic abilities of our species are only now beginning to manifest in certain individuals.&lt;/color&gt;</descriptionEn>
+    <buffLines>      <li mechs="false" textEn="Casting psionic skills costs no focus">施放灵能技能不消耗精神力</li>      <li mechs="false" textEn="Psychic entropy no longer builds from any source">任何来源的心灵熵都停止累积</li>      <li mechs="false" textEn="Highest-tier psycasts need no meditation">最高阶灵能无需冥想支撑</li>    </buffLines>
+  </Dangerous>
+
+  <!--
+    ============================ 独立危险科技：合成进化 ============================
+
+    用户要求（2026-10-22 起，2026-11-04 定稿为五条）：机械带宽、机械能耗、镇定、劳作、装甲五条链
+    点满之后，出现 10 万点的「合成进化」（2026-11-04 起统一 1 万点），效果是**机械师指挥不再受距离限制**、**机械体也吃循环科技
+    加成**、**部位血量与缺损不再影响任何能力**、**控制机械体不消耗带宽**、**机械体不需要充电**。
+
+      - 指挥范围：vanilla 的硬限制是 `Pawn_MechanitorTracker.CanCommandTo`（24.9 格，即
+        DistanceToSquared < 620.01），浮空菜单与多选移动全靠 `MechanitorUtility.
+        InMechanitorCommandRange` 问它。合成进化后补丁直接放行，同时让 `DrawCommandRadius`
+        不再画那个已经名不副实的白圈。
+      - 机械体吃加成：buff hediff 的投递名单从「自由殖民者 + 奴隶」扩到「+ 玩家机械体」
+        （LoopEligibility.IsLoopTarget），属性链、远程伤害、远程精准、部位血量一并生效。
+        机械体没有的生理需求（饥饿/休息/娱乐/疼痛/流血/灵能）在 buff 提示条里不列。
+      - 能力：`Patch_CapacityLevel` 把低于 1 的能力等级抬到 1（缺失部位在 vanilla 是直接归零）。
+      - 带宽：`Notify_BandwidthChanged` / `UsedBandwidth` / `CanOverseeSubject` /
+        `HasBandwidthForBill` / `HasBandwidthToResurrect` / `CompOverseerSubject.State` 六个补丁，
+        机械体永远受控、预算永远是 0。
+      - 充电：`Need_MechEnergy.FallPerDay` 归零（耗电只有这一个来源），250 tick 的飞升扫描再把电量
+        顶满——落地时已经空电的机械体、以及被充能桩维修扣掉的电都靠这一步回到满值；自我关闭的
+        摘除走 vanilla 自己的 NeedInterval，不重复实现它的私有状态机。详见 DESIGN §9.2。
+  -->
+  <!-- 英文原版（群星天赋 Synthetic Evolution flavor，已写入下方 description 第二行，与中文
+       flavor 句同色 #33CCE6）：
+       "It is time to abandon the flawed organic vessels that imprison our minds. By transferring our
+        neural patterns into synthetic bodies, we will achieve a higher state of being." -->
+  <Dangerous defName="RL_SyntheticEvolution" cost="10000"
+             prerequisite="RL_MechBandwidth,RL_MechEnergy,RL_Stagger,RL_Labor,RL_Armor"
+             prereqLevel="10"
+             researchViewX="1.0" researchViewY="4.6" effect="synthetic"
+             hediffDef="RL_Hediff_Ascension_Mech">
+    <label>合成进化</label>
+    <labelEn>Synthetic Evolution</labelEn>
+    <description>&lt;color=#33CCE6&gt;有机心智被囚禁在会疲惫、会疼痛、会衰老的躯壳里，这本身就是一种低效。把神经模式迁入合成之躯。&lt;/color&gt;</description>
+    <descriptionEn>&lt;color=#33CCE6&gt;It is time to abandon the flawed organic vessels that imprison our minds. By transferring our neural patterns into synthetic bodies, we will achieve a higher state of being.&lt;/color&gt;</descriptionEn>
+    <buffLines>      <li mechs="false" textEn="The mechanitor can command from anywhere on the map - no range limit">机械师的指挥再无距离限制，地图上任意位置都能下令</li>      <li mechs="false" textEn="Your mechs gain the Research Loop buff, sharing all bonuses with colonists">自己的机械体带上「循环科技」，与殖民者共享全部加成</li>      <li textEn="Body-part health and missing parts no longer affect any ability">身体各部位的血量与缺损不再影响任何能力</li>      <li mechs="false" textEn="Commanding mechs costs no bandwidth, so any number of them stays under control">控制机械体不消耗带宽，想链接多少就链接多少</li>      <li textEn="Your mechs never run down: no charging, no self-shutdown">机械体不再耗电，不用充能也不会自我关闭</li>    </buffLines>
+  </Dangerous>
+
+  <!--
+    ============================ 独立危险科技：血肉苦弱 ============================
+
+    用户要求（2026-10-22，当时叫「义体飞升」，后改名「血肉苦弱」）：包含「不流血、不疼痛、不留疤、
+    不要娱乐、饮食，睡觉」，10 万点（2026-11-04 起四条飞升统一 1 万点）。
+
+    `zeroes` 列出的五条链直接按 ×0 计算，走 `DangerousTech.IsZeroed` 通路。
+    **2026-10-23 起它就是这五条链归零的唯一实现**：那五个单独的 10 万点危险科技节点
+    （告别娱乐/告别休息/告别饮食/无视疼痛/不再流血）已按用户要求全部删除，研究页上不再有。
+    额外多出来的三件事才是它自己的：
+      - 不留疤：`HediffComp_GetsPermanent.PreFinalizeInjury` 直接放行（原版「无疤」基因同一个入口）；
+      - 需求真的消失：光把下降系数归零只会「冻在当前位置」，所以每 250 tick 的 buff 扫描里把
+        食物/休息/娱乐三项顶满（Source/CyberneticAscension.cs），否则小人会永远卡在「非常无聊」；
+      - 护甲固定 200%（2026-11-04 用户要求「钝器、锐器、热能防御均为200%」）：`StatWorker.GetValue`
+        的总出口上把 ArmorRating_Sharp/Blunt/Heat 钉成 2.0（原版护甲上限），伤害结算与装备页护甲条
+        读的是同一个数。钉死值无法用数据表达——StatModifier 没有 Set，hediff 只有 offset（加）与
+        factor（乘），而小人本体护甲基值是 0，加不出 2、乘 0 还是 0。
+  -->
+  <!-- 英文原版（群星天赋 The Flesh is Weak flavor，已写入下方 description 第二行，与中文
+       flavor 句同色 #FF991A）：
+       "The limits and constraints imposed on us by our feeble organic bodies are simply unacceptable.
+        To reach our full potential, we must turn to cybernetic implants." -->
+  <Dangerous defName="RL_CyberneticAscension" cost="10000"
+             prerequisite="RL_PainResist,RL_BleedRate,RL_JoyFall,RL_RestFall,RL_FoodFall,RL_RestEfficiency"
+             prereqLevel="10"
+             zeroes="RL_PainResist,RL_BleedRate,RL_JoyFall,RL_RestFall,RL_FoodFall"
+             researchViewX="1.0" researchViewY="5.8" effect="cybernetic"
+             hediffDef="RL_Hediff_Ascension_Body">
+    <label>血肉苦弱</label>
+    <labelEn>Cybernetic Ascension</labelEn>
+    <description>&lt;color=#FF991A&gt;疼痛、失血、倦意、饥馁与无聊——没有一条是进化给的礼物，全是脆弱有机体的妥协。将躯体逐步替换为义体。&lt;/color&gt;</description>
+    <descriptionEn>&lt;color=#FF991A&gt;The limits and constraints imposed on us by our feeble organic bodies are simply unacceptable. To reach our full potential, we must turn to cybernetic implants.&lt;/color&gt;</descriptionEn>
+    <buffLines>      <li mechs="false" textEn="No longer bleeds">不再流血</li>      <li mechs="false" textEn="Feels no pain">不再感到疼痛</li>      <li mechs="false" textEn="Wounds leave no permanent scars">伤口不再留下永久疤痕</li>      <li mechs="false" textEn="Blunt, sharp and heat armour are pinned at 200%">钝器、锐器、热能护甲固定为 200%</li>      <li mechs="false" textEn="Recreation no longer falls">娱乐值不再下降</li>      <li mechs="false" textEn="Rest no longer falls">休息值不再下降</li>      <li mechs="false" textEn="Hunger no longer falls">饥饿值不再下降</li>    </buffLines>
+  </Dangerous>
+
+  <!--
+    ============================ 独立危险科技：设计进化 ============================
+
+    用户要求（2026-10-22，当时叫「基因飞升」，后改名「设计进化」）：「包含操作能力之类的全部加100%，
+    伤口自愈速度*50，免疫速度*50，
+    远程必中，15 万科技点」。15 万是 2026-10-23 的临时提价，2026-11-04 用户要求四条飞升统一 1 万点。
+    前置按效果来源定七条：蓄力、远程精准、近战伤害、远程伤害、近战命中、
+    近战挥击、射速（远程后摇）。
+    2026-10-23 晚：部位血量移出前置、远程后摇确认在内（本就在尾项射速 RL_RangedCooldown）。
+    同日「蓄力系数替换部位血量的区域」：蓄力（RL_Aiming）进入前置，并接管 Y=7 行最左第二个位置
+    （2.6/7）；部位血量让位，回到自由区的 4.2/1.0（原蓄力的坐标）——基飞行节点数不变，仍是 8 个。
+
+    四项效果分三个通道，全部由数据驱动（数字都在这个元素里，改数值不用动代码）：
+      - 全部身体能力 +100%：`capacityOffset="1"` → Hediff_Ascension 给**每一个** PawnCapacityDef
+        加 capMods.offset（操作/移动/视觉/听觉/呼吸/意识…全部翻倍）。能力等级有缓存，所以
+        AscensionBuff 在 BuffVersion 变化时统一 Notify_CapacityLevelsDirty 一次。
+      - 伤口自愈 ×50 / 免疫速度 ×50：<statFactors>，直接挂 InjuryHealingFactor / ImmunityGainSpeed。
+      - 远程必中：`zeroes="RL_RangedAccuracy"` —— 由 Patches.Patch_ShotReportPerfect 把整份
+        ShotReport 重写成「全因子 1、掩体阻挡 0」（判的就是 IsZeroed(RL_RangedAccuracy)），
+        连带着那条链的失误率系数也变成 ×0。**2026-10-23 起这是远程必中的唯一入口**：
+        原来的「弹道锁定」一次性节点已删除，而 IsZeroedByAscension 以前只读血肉苦弱的
+        zeroes、根本不看设计进化这份——那是个既存 bug，本次删除时一并修好
+        （改为遍历所有已研究飞升各自的 zeroes）。强制散布类武器（机枪/榴弹）本来不做瞄准判定，不受影响。
+    <buffLines> 是这条飞升在**自己那条 hediff** 提示条上的三行（2026-10-23 从循环 buff 拆出）；
+    `mechs="false"` 的行不进机械体那一版。
+  -->
+  <!-- 英文原版（群星天赋 Biomorphosis flavor，已写入下方 description 第二行，与中文
+       flavor 句同色 #66E666）：
+       "To leave our genetic destiny in the hands of nature is an inefficient and excruciatingly slow
+        process. Why not jump-start the future of our species?" -->
+  <Dangerous defName="RL_GeneAscension" cost="10000"
+             prerequisite="RL_Aiming,RL_RangedAccuracy,RL_MeleeDamage,RL_RangedDamage,RL_MeleeHit,RL_MeleeCooldown,RL_RangedCooldown"
+             prereqLevel="10"
+             zeroes="RL_RangedAccuracy" capacityOffset="1"
+             researchViewX="1.0" researchViewY="7" effect="gene"
+             hediffDef="RL_Hediff_Ascension_Gene">
+    <label>设计进化</label>
+    <labelEn>Genetic Ascension</labelEn>
+    <description>&lt;color=#66E666&gt;把物种的未来交给随机突变，是低效到令人煎熬的过程。亲自重写基因蓝图。&lt;/color&gt;</description>
+    <descriptionEn>&lt;color=#66E666&gt;To leave our genetic destiny in the hands of nature is an inefficient and excruciatingly slow process. Why not jump-start the future of our species?&lt;/color&gt;</descriptionEn>
+    <statFactors>
+      <li><stat>InjuryHealingFactor</stat><value>50</value></li>
+      <li><stat>ImmunityGainSpeed</stat><value>50</value></li>
+    </statFactors>
+    <buffLines>      <li textEn="All body capacities +100%">全部身体能力 +100%</li>      <li mechs="false" textEn="Wound healing ×50">伤口自愈速度 ×50</li>      <li mechs="false" textEn="Immunity gain ×50">免疫速度 ×50</li>      <li mechs="false" textEn="Ranged attacks always hit (except forced-spread weapons like MG and grenade launchers)">远程攻击必定命中（机枪、榴弹等强制散布类武器除外）</li>    </buffLines>
+  </Dangerous>
+
+</ResearchLoopTemplates>

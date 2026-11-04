@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Defs>
+
+  <!--
+    「飞升之悦」心情（2026-10-25 用户：每完成一个飞升 +15 心情，描述就是群星那四句）。
+
+    One situational thought per ascension, +15 mood each, so a fully ascended colony sits at +60.
+    ThoughtWorker_AscensionJoy activates only the defs whose ascension is actually researched, so the
+    mood panel lists exactly the lines of the finished ascensions. Description = that ascension's
+    Stellaris flavour line (the same one shown on the research node). English text lives in
+    Languages/English/DefInjected/ThoughtDef/ResearchLoopsThoughts.xml (stages.0.label / .description).
+  -->
+
+  <ThoughtDef>
+    <defName>RL_AscensionJoy_Mind</defName>
+    <workerClass>LocalMods.ResearchLoops.ThoughtWorker_AscensionJoy</workerClass>
+    <stages>
+      <li>
+        <label>飞升之悦 · 心胜于物</label>
+        <description>意识是最后一片未被测绘的疆域，这个物种与生俱来的灵能天赋，此前只在少数个体身上露出过一角。当灵能不再向施法者索取代价，天赋便成了本能。</description>
+        <baseMoodEffect>15</baseMoodEffect>
+      </li>
+    </stages>
+  </ThoughtDef>
+
+  <ThoughtDef>
+    <defName>RL_AscensionJoy_Mech</defName>
+    <workerClass>LocalMods.ResearchLoops.ThoughtWorker_AscensionJoy</workerClass>
+    <stages>
+      <li>
+        <label>飞升之悦 · 合成进化</label>
+        <description>有机心智被囚禁在会疲惫、会疼痛、会衰老的躯壳里，这本身就是一种低效。把神经模式迁入合成之躯。</description>
+        <baseMoodEffect>15</baseMoodEffect>
+      </li>
+    </stages>
+  </ThoughtDef>
+
+  <ThoughtDef>
+    <defName>RL_AscensionJoy_Body</defName>
+    <workerClass>LocalMods.ResearchLoops.ThoughtWorker_AscensionJoy</workerClass>
+    <stages>
+      <li>
+        <label>飞升之悦 · 血肉苦弱</label>
+        <description>疼痛、失血、倦意、饥馁与无聊——没有一条是进化给的礼物，全是脆弱有机体的妥协。将躯体逐步替换为义体。</description>
+        <baseMoodEffect>15</baseMoodEffect>
+      </li>
+    </stages>
+  </ThoughtDef>
+
+  <ThoughtDef>
+    <defName>RL_AscensionJoy_Gene</defName>
+    <workerClass>LocalMods.ResearchLoops.ThoughtWorker_AscensionJoy</workerClass>
+    <stages>
+      <li>
+        <label>飞升之悦 · 设计进化</label>
+        <description>把物种的未来交给随机突变，是低效到令人煎熬的过程。亲自重写基因蓝图。</description>
+        <baseMoodEffect>15</baseMoodEffect>
+      </li>
+    </stages>
+  </ThoughtDef>
+
+</Defs>

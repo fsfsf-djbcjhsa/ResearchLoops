@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Defs>
+
+  <!--
+    The four ascensions' OWN hediffs (2026-10-23, user directive: 「把四个飞升效果单拎出来，健康栏中
+    独立于循环科技效果」). Until today every ascension effect rode the loop buff (RL_Hediff_TechCycle),
+    so a player could not tell "通用劳作速度 ×3.2" (a chain) from "全部身体能力 +100%" (设计进化).
+
+    Now the health tab shows one hediff per researched ascension, and the loop buff keeps only the
+    chain lines. The split is purely a display/ownership split — both hediffs' stages are summed by
+    vanilla, so the numbers on the stat card do not move.
+
+    Each def is bound to its ascension by the authored `hediffDef` attribute on the <Dangerous>
+    element in Data/ResearchLoopTemplates.xml; Hediff_Ascension looks the info up by this defName.
+    Label colour matches DangerousTech.AscensionColors so the health line and the research node
+    read as the same thing.
+  -->
+
+  <!-- 心胜于物 — psychic violet, matches DangerousTech.AscensionColors[ascension] -->
+  <HediffDef>
+    <defName>RL_Hediff_Ascension_Psy</defName>
+    <label>心胜于物</label>
+    <hediffClass>LocalMods.ResearchLoops.Hediff_Ascension</hediffClass>
+    <isBad>false</isBad>
+    <defaultLabelColor>(179,102,255)</defaultLabelColor>
+    <scenarioCanAdd>false</scenarioCanAdd>
+    <stages>
+      <li>
+        <becomeVisible>true</becomeVisible>
+      </li>
+    </stages>
+  </HediffDef>
+
+  <!-- 合成进化 — mech cyan -->
+  <HediffDef>
+    <defName>RL_Hediff_Ascension_Mech</defName>
+    <label>合成进化</label>
+    <hediffClass>LocalMods.ResearchLoops.Hediff_Ascension</hediffClass>
+    <isBad>false</isBad>
+    <defaultLabelColor>(51,204,230)</defaultLabelColor>
+    <scenarioCanAdd>false</scenarioCanAdd>
+    <stages>
+      <li>
+        <becomeVisible>true</becomeVisible>
+      </li>
+    </stages>
+  </HediffDef>
+
+  <!-- 血肉苦弱 — body orange -->
+  <HediffDef>
+    <defName>RL_Hediff_Ascension_Body</defName>
+    <label>血肉苦弱</label>
+    <hediffClass>LocalMods.ResearchLoops.Hediff_Ascension</hediffClass>
+    <isBad>false</isBad>
+    <defaultLabelColor>(255,153,26)</defaultLabelColor>
+    <scenarioCanAdd>false</scenarioCanAdd>
+    <stages>
+      <li>
+        <becomeVisible>true</becomeVisible>
+      </li>
+    </stages>
+  </HediffDef>
+
+  <!-- 设计进化 — gene green -->
+  <HediffDef>
+    <defName>RL_Hediff_Ascension_Gene</defName>
+    <label>设计进化</label>
+    <hediffClass>LocalMods.ResearchLoops.Hediff_Ascension</hediffClass>
+    <isBad>false</isBad>
+    <defaultLabelColor>(102,230,102)</defaultLabelColor>
+    <scenarioCanAdd>false</scenarioCanAdd>
+    <stages>
+      <li>
+        <becomeVisible>true</becomeVisible>
+      </li>
+    </stages>
+  </HediffDef>
+
+</Defs>

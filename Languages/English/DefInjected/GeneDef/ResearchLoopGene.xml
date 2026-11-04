@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<LanguageData>
+
+  <RL_TechCycle.label>Tech Cycle</RL_TechCycle.label>
+  <!-- 2026-10-25: no labelShortAdj key (nor field) on purpose. GeneDef.LabelShortAdj returns
+       labelShortAdj when non-empty, so a Chinese labelShortAdj leaked into some UIs even in English
+       (user report 「英文版里边还是有中文的科技循环」). With the field empty it falls back to label,
+       which IS translated. -->
+  <!-- No description on purpose (2026-10-23): the gene card shows the aptitude list, which is the
+       effect itself. A DefInjected key for a removed field would error at load. -->
+
+</LanguageData>

@@ -1,0 +1,15 @@
+# 内部设计与过程文档（含反编译行号、本机路径、未上线草案），不随仓库发布
+DESIGN.md
+PLAN.md
+WORKLOG.md
+INTRO_workshop.txt
+/AutoLoop/
+Data/LoopDrafts/
+
+# 自检工具：引用本机游戏 DLL 与 0Harmony.dll 绝对路径，玩家用不上
+Tests/
+
+# 构建噪音与 Office 临时文件
+build_errors.log
+~$*
+*.tmp

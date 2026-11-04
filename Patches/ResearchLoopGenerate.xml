@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  ResearchLoops — def generator entry point.
+
+  PatchOperation_GenerateLoopDefs appends one <ResearchProjectDef> per authored loop to the
+  unified def document at load time. It reads Data/ResearchLoopTemplates.xml (the single
+  authoring source for costs, coordinates and all display text) and nothing else.
+
+  Load-order facts this file depends on (verified against 1.6.4871):
+    - LoadedModManager runs LoadModXML -> CombineIntoUnifiedXML -> ApplyPatches ->
+      ParseAndProcessXML, so this operation writes plain XML before any def is parsed.
+    - DefDatabase is EMPTY during ApplyPatches. The operation must not resolve defs; the
+      predecessor did, and silently generated zero defs because of it.
+    - Nodes appended here reach DefDatabase through LoadedModManager.PatchedDefsForReading
+      (DefDatabase<T>.AddAllInMods adds them with source "Patches").
+-->
+<Patch>
+  <Operation Class="LocalMods.ResearchLoops.PatchOperation_GenerateLoopDefs" />
+</Patch>

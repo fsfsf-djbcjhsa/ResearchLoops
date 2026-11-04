@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<LanguageData>
+
+  <!--
+    English for the four 「飞升之悦」 mood thoughts (2026-10-25). The label keeps the
+    "Ascension Joy · <ascension>" shape; the description is the Stellaris flavour line for that
+    ascension (the same line the research node shows). Indexed list injection: <def>.stages.0.field.
+  -->
+
+  <RL_AscensionJoy_Mind.stages.0.label>Ascension Joy · Mind Over Matter</RL_AscensionJoy_Mind.stages.0.label>
+  <RL_AscensionJoy_Mind.stages.0.description>Only a fraction of the potential contained within our minds has been unlocked. The latent psionic abilities of our species are only now beginning to manifest in certain individuals.</RL_AscensionJoy_Mind.stages.0.description>
+
+  <RL_AscensionJoy_Mech.stages.0.label>Ascension Joy · Synthetic Evolution</RL_AscensionJoy_Mech.stages.0.label>
+  <RL_AscensionJoy_Mech.stages.0.description>It is time to abandon the flawed organic vessels that imprison our minds. By transferring our neural patterns into synthetic bodies, we will achieve a higher state of being.</RL_AscensionJoy_Mech.stages.0.description>
+
+  <RL_AscensionJoy_Body.stages.0.label>Ascension Joy · Cybernetic Ascension</RL_AscensionJoy_Body.stages.0.label>
+  <RL_AscensionJoy_Body.stages.0.description>The limits and constraints imposed on us by our feeble organic bodies are simply unacceptable. To reach our full potential, we must turn to cybernetic implants.</RL_AscensionJoy_Body.stages.0.description>
+
+  <RL_AscensionJoy_Gene.stages.0.label>Ascension Joy · Genetic Ascension</RL_AscensionJoy_Gene.stages.0.label>
+  <RL_AscensionJoy_Gene.stages.0.description>To leave our genetic destiny in the hands of nature is an inefficient and excruciatingly slow process. Why not jump-start the future of our species?</RL_AscensionJoy_Gene.stages.0.description>
+
+</LanguageData>

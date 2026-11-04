@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Defs>
+
+  <!--
+    科技循环 — the visible carrier of this mod's skill bonuses.
+
+    Why a gene: the skill bonus itself is applied at read time (SkillRecord.GetLevel), which is
+    invisible in the UI. A gene is the one vanilla mechanism that shows up on every pawn AND feeds
+    SkillRecord.Aptitude, which the skill panel and tooltip already display. So the aptitudes below
+    are rewritten at runtime (ResearchLoopGene.SyncAptitudes) to match the colony's completed loop
+    levels, and every free colonist / slave is given the gene automatically.
+
+    The aptitudes start at 0 on purpose: a fresh save must not show a bonus before anything is
+    researched. Every skill this mod feeds is listed here because vanilla gene cards render the list
+    as-is, and a skill that appears later would need a def reload. Keep this list in sync with the
+    templates that declare delivery="skill" (Verify pins both sides).
+
+    Biotech-only content: without the DLC pawn.genes is null, the gene is never added, and
+    Patch_SkillLevel falls back to adding the bonus directly.
+  -->
+  <GeneDef>
+    <defName>RL_TechCycle</defName>
+    <label>科技循环</label>
+    <iconPath>UI/Icons/Genes/Gene_FastLearning</iconPath>
+    <biostatMet>0</biostatMet>
+    <biostatCpx>0</biostatCpx>
+    <biostatArc>0</biostatArc>
+    <endogeneCategory>None</endogeneCategory>
+    <displayOrderInCategory>1000</displayOrderInCategory>
+    <aptitudes>
+      <Mining>0</Mining>
+      <Plants>0</Plants>
+      <Construction>0</Construction>
+      <Crafting>0</Crafting>
+      <Cooking>0</Cooking>
+      <Intellectual>0</Intellectual>
+      <Medicine>0</Medicine>
+      <Shooting>0</Shooting>
+      <Melee>0</Melee>
+      <Animals>0</Animals>
+      <Artistic>0</Artistic>
+      <Social>0</Social>
+    </aptitudes>
+  </GeneDef>
+
+</Defs>

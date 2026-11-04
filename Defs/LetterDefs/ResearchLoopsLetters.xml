@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Defs>
+
+  <!--
+    飞升完成弹窗专用信件。继承 PositiveEvent（蓝字 + LetterArrive_Good 到达音 +
+    默认 pauseMode=AnyLetter，即只会在玩家选了"任何信件都暂停"时才暂停游戏），
+    把文字色换成 mod 飞升的紫色、闪光换成金色，让完成提示在信件堆里一眼可辨。
+    letterClass 不写：LetterDef 的 C# 默认值是 typeof(StandardLetter)，点击后是
+    "标题 + 正文 + 关闭" 的标准信件窗口，正好够用。
+  -->
+  <LetterDef ParentName="PositiveEvent">
+    <defName>RL_AscensionComplete</defName>
+    <color>(179, 102, 255)</color>
+    <flashColor>(255, 214, 102)</flashColor>
+  </LetterDef>
+
+</Defs>
