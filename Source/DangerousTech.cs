@@ -249,6 +249,15 @@ namespace LocalMods.ResearchLoops
         /// </summary>
         public static bool EffectResearched(string effect)
         {
+            // 2026-11-06: mods such as Nice Bill Tab scan apparel armour from their static
+            // constructor while StaticConstructorOnStartup runs. At that point Current.Game is
+            // still null, and ResearchProjectDef.IsFinished -> ProgressReal ->
+            // Find.ResearchManager (= Current.Game.researchManager) throws a
+            // NullReferenceException. No game means no researched ascension yet, so answer
+            // false here instead of letting the read escape into Patch_ArmorPinned's catch.
+            // Keep this check FIRST: reading Find.ResearchManager itself is what throws.
+            if (Current.Game == null) return false;
+
             DangerousTechInfo info = InfoForEffect(effect);
             if (info == null) return false;
 

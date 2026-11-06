@@ -2,6 +2,18 @@
 
 版本号对齐 `About/About.xml` 里的 `<modVersion>`；每个版本同时发一个创意工坊更新与一个 GitHub Release。
 
+## v1.2 — 2026-11-06
+
+兼容性维护 + 发布文案同步；版本号由 1.1 升至 1.2。
+
+- 发布文案同步到新版简介：中英正文补落款，新增 1.2 更新说明（工坊介绍 / BBcode / 网页粘贴版 / Steam 更新说明），`About.xml` 的 `<description>` 同步补落款。
+- `modVersion` 升至 `1.2`，发布包改为 `ResearchLoops_v1.2.zip`，README 与打包脚本默认值同步。
+- 修复与 Nice Bill Tab 的启动期冲突：启动阶段 `Current.Game` 尚未建立时，护甲补丁查飞升研究状态会空引用；现在提前返回，不再刷红字。
+- 给 5 个 HediffDef 补上 `<description>`，消除启动时的 `has no description` 配置错误。
+- 声明支持 RimWorld 1.7；`build.ps1` 自动识别 1.6 / 1.7 布局（1.7 改用 .NET 10 运行时程序集）。
+- 双版本 dll 分放：根目录 `Assemblies/` 为 1.6 版，`1.7/Assemblies/` 为 1.7 版，由 `LoadFolders.xml` 按版本挑选。
+- `About.xml` 版本列表追加 1.8 / 1.9 / 2.0：仅为显示占位，未针对这些版本编译或验证 dll。
+
 ## v1.1 — 2026-11-04
 
 终局门槛与成本曲线。

@@ -3,9 +3,13 @@
   <name>循环科技 (Research Loops)</name>
   <author>料青山见我应如是</author>
   <packageId>liaoqingshan.researchloops</packageId>
-  <modVersion>1.1</modVersion>
+  <modVersion>1.2</modVersion>
   <supportedVersions>
     <li>1.6</li>
+    <li>1.7</li>
+    <li>1.8</li>
+    <li>1.9</li>
+    <li>2.0</li>
   </supportedVersions>
   <modDependencies>
     <li>
@@ -87,5 +91,7 @@ Steam：https://steamcommunity.com/sharedfiles/filedetails/?id=3830009762
 GitHub：https://github.com/fsfsf-djbcjhsa/ResearchLoops
 
 请多多批评指正，您的反馈是我成长的最佳动力：）
+
+我说我已启动，我已启
   </description>
 </ModMetaData>

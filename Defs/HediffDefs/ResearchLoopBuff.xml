@@ -7,10 +7,13 @@
     stage, no comps. The stage's stat offsets/factors are built at runtime from the colony's
     researched levels by Hediff_ResearchLoop.CurStage, and the same class renders the
     per-chain breakdown in TipStringExtra.
+
+    2026-11-06: added <description> — RimWorld 1.7 rejects a HediffDef without one.
   -->
   <HediffDef>
     <defName>RL_Hediff_TechCycle</defName>
     <label>循环科技</label>
+    <description>循环科技：本殖民者已完成的科技循环等级汇总，每一级按模板提供对应的属性加成，数值随研究进度实时更新。</description>
     <hediffClass>LocalMods.ResearchLoops.Hediff_ResearchLoop</hediffClass>
     <isBad>false</isBad>
     <defaultLabelColor>(255,215,0)</defaultLabelColor>

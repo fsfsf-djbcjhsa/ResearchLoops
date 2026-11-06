@@ -14,12 +14,16 @@
     element in Data/ResearchLoopTemplates.xml; Hediff_Ascension looks the info up by this defName.
     Label colour matches DangerousTech.AscensionColors so the health line and the research node
     read as the same thing.
+
+    2026-11-06: RimWorld 1.7 logs "Hediff ... has no description!" for every HediffDef without
+    one. Added a description to each of the five defs in these two files.
   -->
 
   <!-- 心胜于物 — psychic violet, matches DangerousTech.AscensionColors[ascension] -->
   <HediffDef>
     <defName>RL_Hediff_Ascension_Psy</defName>
     <label>心胜于物</label>
+    <description>心胜于物已完成：灵能技能不再消耗精神力，心灵熵停止累积，殖民者无需再冥想。效果无法撤销。</description>
     <hediffClass>LocalMods.ResearchLoops.Hediff_Ascension</hediffClass>
     <isBad>false</isBad>
     <defaultLabelColor>(179,102,255)</defaultLabelColor>
@@ -35,6 +39,7 @@
   <HediffDef>
     <defName>RL_Hediff_Ascension_Mech</defName>
     <label>合成进化</label>
+    <description>合成进化已完成：机械师指挥无距离限制，机械体也能享受循环科技加成；控制机械体不消耗带宽且无需充电，身体部位缺损不再影响任何能力。效果无法撤销。</description>
     <hediffClass>LocalMods.ResearchLoops.Hediff_Ascension</hediffClass>
     <isBad>false</isBad>
     <defaultLabelColor>(51,204,230)</defaultLabelColor>
@@ -50,6 +55,7 @@
   <HediffDef>
     <defName>RL_Hediff_Ascension_Body</defName>
     <label>血肉苦弱</label>
+    <description>血肉苦弱已完成：不再流血、不再感到疼痛，娱乐／休息／饥饿不再下降；伤口不留疤痕，护甲值固定为满。效果无法撤销。</description>
     <hediffClass>LocalMods.ResearchLoops.Hediff_Ascension</hediffClass>
     <isBad>false</isBad>
     <defaultLabelColor>(255,153,26)</defaultLabelColor>
@@ -65,6 +71,7 @@
   <HediffDef>
     <defName>RL_Hediff_Ascension_Gene</defName>
     <label>设计进化</label>
+    <description>设计进化已完成：全部身体能力 +100%，伤口自愈与免疫速度 ×50，远程攻击必定命中（机枪、榴弹等强制散布武器除外）。效果无法撤销。</description>
     <hediffClass>LocalMods.ResearchLoops.Hediff_Ascension</hediffClass>
     <isBad>false</isBad>
     <defaultLabelColor>(102,230,102)</defaultLabelColor>

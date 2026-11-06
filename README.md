@@ -4,7 +4,8 @@
 
 把《群星》的循环科技搬进环世界。29 项关键科技各成一条可反复研究的循环链，研究完一级原地升下一级，成本与收益一起上涨、效果永久叠加；后期研究台不再闲置。
 
-- 支持版本：RimWorld 1.6
+- 当前版本：v1.2（2026-11-06）
+- 支持版本：RimWorld 1.6 / 1.7；1.8 / 1.9 / 2.0 为提前占位声明（尚未实测）
 - 前置依赖：[Harmony](https://steamcommunity.com/sharedfiles/filedetails/?id=2009463077)
 - 创意工坊：https://steamcommunity.com/sharedfiles/filedetails/?id=3830009762
 - 完整功能与数值：[INTRO.md](INTRO.md)
@@ -68,6 +69,8 @@ GitHub Releases：[../../releases](../../releases)
 
 请多多批评指正，您的反馈是我成长的最佳动力：）
 
+我说我已启动，我已启
+
 ---
 
 ## English
@@ -125,7 +128,19 @@ Steam：https://steamcommunity.com/sharedfiles/filedetails/?id=3830009762
 
 Criticism welcome — your feedback is the best fuel I have. :)
 
+I said: it's launched. Launched, it is.
+
 ---
+
+## 更新日志（v1.2）
+
+- 修复了描述，现在已支持 1.6 / 1.7 / 1.8 / 1.9 / 2.0。o7
+- 修复了与 Nice Bill Tab 的兼容问题
+- 感谢反馈：）
+
+- Fixed the description; it now supports 1.6, 1.7, 1.8, 1.9, and 2.0. o7
+- Fixed compatibility issues with Nice Bill Tab.
+- Thanks for the feedback :)
 
 ## 更新日志（v1.1）
 
@@ -147,9 +162,10 @@ Criticism welcome — your feedback is the best fuel I have. :)
 
 ## 下载与安装
 
-只想玩的玩家不需要编译，仓库里已经带着编译好的 `Assemblies/ResearchLoops.dll`。
+只想玩的玩家不需要编译，仓库里已经带着两个编译好的 dll：根目录 `Assemblies/` 是 1.6 版，
+`1.7/Assemblies/` 是 1.7 版，由 `LoadFolders.xml` 按游戏版本挑选。
 
-1. 下载 [Releases](../../releases) 里的 `ResearchLoops_v1.1.zip`，或直接在创意工坊订阅
+1. 下载 [Releases](../../releases) 里的 `ResearchLoops_v1.2.zip`，或直接在创意工坊订阅
 2. 解压得到 `ResearchLoops` 文件夹，放进 `<游戏目录>\Mods\`
 3. 在启动器里启用，排在 **Harmony** 之后
 4. 游戏内研究出「多元分析仪」，研究面板会多出「循环科技」这一页
@@ -159,12 +175,23 @@ Criticism welcome — your feedback is the best fuel I have. :)
 ## 从源码编译
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File Source\build.ps1 -GameRoot <你的 RimWorld 安装目录>
+powershell -ExecutionPolicy Bypass -File 'Source\build.ps1'
 ```
 
-脚本直接用 .NET SDK 自带的 Roslyn 编译器，需要本机游戏 `RimWorldWin64_Data\Managed` 下的 DLL 与
-Harmony 的 `0Harmony.dll`（默认从创意工坊物品 2009463077 目录探测，可用 `-HarmonyDll` 覆盖）。
-产物写入 `Assemblies\ResearchLoops.dll`。`Source\deploy.ps1` 把运行时文件集镜像到 `<游戏目录>\Mods\ResearchLoops`。
+在 PowerShell 里执行；如果用 Git Bash，路径要加引号或改成正斜杠，否则反斜杠会被 shell 吞掉
+（`Source\build.ps1` 会变成 `Sourcebuild.ps1`）。脚本用 `$PSScriptRoot` 定位仓库，不依赖当前目录。
+
+脚本用 .NET SDK 自带的 Roslyn 编译器，会自动识别游戏版本：1.6 读 `RimWorldWin64_Data\Managed`，
+1.7（Waylith / .NET 10）读游戏根目录的完整运行时程序集。Harmony 的 `0Harmony.dll` 从工坊物品
+2009463077 按版本目录探测；`-GameRoot`、`-HarmonyDll`、`-RimWorldVersion` 都可手动覆盖。
+产物写入 `Assemblies\ResearchLoops.dll`，编译日志写在仓库根目录的 `build_errors.log`。
+
+**双版本发布结构**：根目录 `Assemblies/` 放 1.6 版 dll，`1.7/Assemblies/` 放 1.7 版 dll，
+`LoadFolders.xml` 声明各版本加载哪些目录。游戏按相对路径去重，同名 dll 只加载一个、版本目录优先。
+用 1.7 引用集编出的 dll 依赖 .NET 10（`System.Private.CoreLib` / `UnityStubs`），**不能给 1.6 用**；
+反过来 1.6 版 dll 在 1.7 下能加载，但不含 1.7 专属修复。改完 dll 记得同步到实际游戏目录。
+
+`Source\deploy.ps1` 把运行时文件集镜像到 `<游戏目录>\Mods\ResearchLoops`。
 
 `Assemblies\ResearchLoops.dll` 一并提交进仓库，方便只想玩的玩家；仓库不打包 `0Harmony.dll`，前置请各自订阅。
 

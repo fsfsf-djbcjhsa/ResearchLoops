@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<loadFolders>
+  <!-- 1.6 loads only the root folder: the 1.6-compatible build sits in Assemblies/. -->
+  <v1.6>
+    <li>/</li>
+  </v1.6>
+  <!-- 1.7 loads root content plus the 1.7 build. GetAllFilesForModPreserveOrder
+       de-duplicates by relative path, so 1.7/Assemblies/ResearchLoops.dll wins
+       over Assemblies/ResearchLoops.dll instead of loading both. -->
+  <v1.7>
+    <li>/</li>
+    <li>1.7</li>
+  </v1.7>
+</loadFolders>
